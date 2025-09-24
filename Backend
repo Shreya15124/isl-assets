@@ -1,0 +1,298 @@
+#FASTAPI_APP.PY:
+from fastapi import FastAPI, Body
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
+app = FastAPI()
+
+# ✅ Allow frontend to call backend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],   # allow all for dev
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ✅ Serve videos folder (make sure "backend/videos/en" and "backend/videos/kn" exist)
+app.mount("/videos", StaticFiles(directory="videos"), name="videos")
+
+# -------------------------
+# PROGRESS TRACKING
+# -------------------------
+progress_data = {}
+
+@app.post("/progress/update")
+async def update_progress(data: dict = Body(...)):
+    user = data.get("username", "guest")
+    word = data.get("word")
+    set_name = data.get("set", "unknown")
+
+    if not word:
+        return {"error": "No word provided"}
+
+    if user not in progress_data:
+        progress_data[user] = []
+
+    # store word only once
+    if word not in progress_data[user]:
+        progress_data[user].append(word)
+
+    return {
+        "message": f"Progress updated for {user}",
+        "progress": progress_data[user],
+        "set": set_name,
+    }
+
+@app.get("/progress/{user}")
+async def get_progress(user: str):
+    return {"user": user, "progress": progress_data.get(user, [])}
+
+# -------------------------
+# SPEECH TO SIGN
+# -------------------------
+sign_dict = {
+    "en": {
+        "bear": "/videos/en/bear.mp4",
+        "break": "/videos/en/break.mp4",
+        "brinjal": "/videos/en/brinjal.mp4",
+        "budget": "/videos/en/budget.mp4",
+        "busy": "/videos/en/busy.mp4",
+        "cabbage": "/videos/en/cabbage.mp4",
+        "carrot": "/videos/en/carrot.mp4",
+        "cauliflower": "/videos/en/cauliflower.mp4",
+        "chilli": "/videos/en/chilli.mp4",
+        "clean": "/videos/en/clean.mp4",
+        "close": "/videos/en/close.mp4",
+        "come": "/videos/en/come.mp4",
+        "cook": "/videos/en/cook.mp4",
+        "crocodile": "/videos/en/crocodile.mp4",
+        "cry": "/videos/en/cry.mp4",
+        "cucumber": "/videos/en/cucumber.mp4",
+        "deer": "/videos/en/deer.mp4",
+        "drink": "/videos/en/drink.mp4",
+        "elephant": "/videos/en/elephant.mp4",
+        "exam": "/videos/en/exam.mp4",
+        "fedup": "/videos/en/fedup.mp4",
+        "fever": "/videos/en/fever.mp4",
+        "giraffe": "/videos/en/giraffe.mp4",
+        "give": "/videos/en/give.mp4",
+        "good_morning": "/videos/en/good_morning.mp4",
+        "good_afternoon": "/videos/en/good_afternoon.mp4",
+        "hello": "/videos/en/hello.mp4",
+        "hug": "/videos/en/hug.mp4",
+        "injury": "/videos/en/injury.mp4",
+        "interview": "/videos/en/interview.mp4",
+        "jump": "/videos/en/jump.mp4",
+        "karnataka": "/videos/en/karnataka.mp4",
+        "key": "/videos/en/key.mp4",
+        "knife": "/videos/en/knife.mp4",
+        "lemon": "/videos/en/lemon.mp4",
+        "lion": "/videos/en/lion.mp4",
+        "man": "/videos/en/man.mp4",
+        "maths": "/videos/en/maths.mp4",
+        "maybe": "/videos/en/maybe.mp4",
+        "monkey": "/videos/en/monkey.mp4",
+        "onion": "/videos/en/onion.mp4",
+        "peacock": "/videos/en/peacock.mp4",
+        "pigeon": "/videos/en/pigeon.mp4",
+        "pour": "/videos/en/pour.mp4",
+        "radish": "/videos/en/radish.mp4",
+        "sparrow": "/videos/en/sparrow.mp4",
+        "still": "/videos/en/still.mp4",
+        "switch": "/videos/en/switch.mp4",
+        "tea": "/videos/en/tea.mp4",
+        "temple": "/videos/en/temple.mp4",
+        "thank_you": "/videos/en/thank_you.mp4",
+        "tiger": "/videos/en/tiger.mp4",
+        "turtle": "/videos/en/turtle.mp4",
+        "umbrella": "/videos/en/umbrella.mp4",
+        "uncle": "/videos/en/uncle.mp4",
+        "vegetables": "/videos/en/vegetables.mp4",
+        "volcano": "/videos/en/volcano.mp4",
+        "what_is_your_name": "/videos/en/what_is_your_name.mp4",
+        "wife": "/videos/en/wife.mp4",
+        "writer": "/videos/en/writer.mp4",
+        "wrong": "/videos/en/wrong.mp4"
+    },
+    "kn": {
+        "karadi": "/videos/kn/bear.mp4",
+        "viraama": "/videos/kn/break.mp4",
+        "badanekayi": "/videos/kn/brinjal.mp4",
+        "bajet": "/videos/kn/budget.mp4",
+        "vyasta": "/videos/kn/busy.mp4",
+        "kosu": "/videos/kn/cabbage.mp4",
+        "gajari": "/videos/kn/carrot.mp4",
+        "hookosu": "/videos/kn/cauliflower.mp4",
+        "menasinakayi": "/videos/kn/chilli.mp4",
+        "swachchagolisu": "/videos/kn/clean.mp4",
+        "mucchu": "/videos/kn/close.mp4",
+        "banni": "/videos/kn/come.mp4",
+        "aduge_madu": "/videos/kn/cook.mp4",
+        "mosale": "/videos/kn/crocodile.mp4",
+        "alu": "/videos/kn/cry.mp4",
+        "sautekayi": "/videos/kn/cucumber.mp4",
+        "jinke": "/videos/kn/deer.mp4",
+        "kudi": "/videos/kn/drink.mp4",
+        "aane": "/videos/kn/elephant.mp4",
+        "pareekshe": "/videos/kn/exam.mp4",
+        "nirase": "/videos/kn/fedup.mp4",
+        "jvara": "/videos/kn/fever.mp4",
+        "jiraaf": "/videos/kn/giraffe.mp4",
+        "kodu": "/videos/kn/give.mp4",
+        "shubhodaya": "/videos/kn/good_morning.mp4",
+        "shubha_madhyahna": "/videos/kn/good_afternoon.mp4",
+        "namaskara": "/videos/kn/namaskara.mp4",
+        "aalingisu": "/videos/kn/hug.mp4",
+        "gaaya": "/videos/kn/injury.mp4",
+        "saakshaatkaara": "/videos/kn/interview.mp4",
+        "haarike": "/videos/kn/jump.mp4",
+        "karnataka": "/videos/kn/karnataka.mp4",
+        "chaavi": "/videos/kn/key.mp4",
+        "chaaku": "/videos/kn/knife.mp4",
+        "nimbe": "/videos/kn/lemon.mp4",
+        "simha": "/videos/kn/lion.mp4",
+        "purusha": "/videos/kn/man.mp4",
+        "ganita": "/videos/kn/maths.mp4",
+        "bahusha": "/videos/kn/maybe.mp4",
+        "kothi": "/videos/kn/monkey.mp4",
+        "eerulli": "/videos/kn/onion.mp4",
+        "navilu": "/videos/kn/peacock.mp4",
+        "paarivaala": "/videos/kn/pigeon.mp4",
+        "surisu": "/videos/kn/pour.mp4",
+        "moolangi": "/videos/kn/radish.mp4",
+        "gubbachi": "/videos/kn/sparrow.mp4",
+        "innu": "/videos/kn/still.mp4",
+        "svich": "/videos/kn/switch.mp4",
+        "chaha": "/videos/kn/tea.mp4",
+        "devaalaya": "/videos/kn/temple.mp4",
+        "dhanyavaada": "/videos/kn/thank_you.mp4",
+        "huliy": "/videos/kn/tiger.mp4",
+        "aame": "/videos/kn/turtle.mp4",
+        "chhatri": "/videos/kn/umbrella.mp4",
+        "mama": "/videos/kn/uncle.mp4",
+        "tarakari": "/videos/kn/vegetables.mp4",
+        "jwaalaamukhi": "/videos/kn/volcano.mp4",
+        "ninna_hesaru_enu": "/videos/kn/what_is_your_name.mp4",
+        "hendati": "/videos/kn/wife.mp4",
+        "baregara": "/videos/kn/writer.mp4",
+        "tappu": "/videos/kn/wrong.mp4"
+    }
+}
+
+
+@app.get("/speech_to_sign/{lang}/{word}")
+async def speech_to_sign(lang: str, word: str):
+    lang = lang.lower()
+    word = word.lower()
+    if lang in sign_dict and word in sign_dict[lang]:
+        return {"word": word, "video_url": sign_dict[lang][word]}
+    return {"error": f"No sign video for '{word}' in language '{lang}'"}
+
+#SIGN_DICT.JSON:
+{
+  "en": {
+    "bear": "/videos/en/bear.mp4",
+    "break": "/videos/en/break.mp4",
+    "brinjal": "/videos/en/brinjal.mp4",
+    "budget": "/videos/en/budget.mp4",
+    "busy": "/videos/en/busy.mp4",
+    "cabbage": "/videos/en/cabbage.mp4",
+    "carrot": "/videos/en/carrot.mp4",
+    "cauliflower": "/videos/en/cauliflower.mp4",
+    "chilli": "/videos/en/chilli.mp4",
+    "clean": "/videos/en/clean.mp4",
+    "close": "/videos/en/close.mp4",
+    "come": "/videos/en/come.mp4",
+    "cook": "/videos/en/cook.mp4",
+    "crocodile": "/videos/en/crocodile.mp4",
+    "cry": "/videos/en/cry.mp4",
+    "cucumber": "/videos/en/cucumber.mp4",
+    "deer": "/videos/en/deer.mp4",
+    "drink": "/videos/en/drink.mp4",
+    "elephant": "/videos/en/elephant.mp4",
+    "exam": "/videos/en/exam.mp4",
+    "fedup": "/videos/en/fedup.mp4",
+    "fever": "/videos/en/fever.mp4",
+    "giraffe": "/videos/en/giraffe.mp4",
+    "give": "/videos/en/give.mp4",
+    "good_morning": "/videos/en/good_morning.mp4",
+    "good_afternoon": "/videos/en/good_afternoon.mp4",
+    "hello": "/videos/en/hello.mp4",
+    "hug": "/videos/en/hug.mp4",
+    "injury": "/videos/en/injury.mp4",
+    "interview": "/videos/en/interview.mp4",
+    "jump": "/videos/en/jump.mp4",
+    "karnataka": "/videos/en/karnataka.mp4",
+    "key": "/videos/en/key.mp4",
+    "knife": "/videos/en/knife.mp4",
+    "lemon": "/videos/en/lemon.mp4",
+    "lion": "/videos/en/lion.mp4",
+    "man": "/videos/en/man.mp4",
+    "maths": "/videos/en/maths.mp4",
+    "maybe": "/videos/en/maybe.mp4",
+    "monkey": "/videos/en/monkey.mp4",
+    "onion": "/videos/en/onion.mp4",
+    "peacock": "/videos/en/peacock.mp4",
+    "pigeon": "/videos/en/pigeon.mp4",
+    "pour": "/videos/en/pour.mp4",
+    "radish": "/videos/en/radish.mp4",
+    "sparrow": "/videos/en/sparrow.mp4",
+    "still": "/videos/en/still.mp4",
+    "switch": "/videos/en/switch.mp4",
+    "tea": "/videos/en/tea.mp4",
+    "temple": "/videos/en/temple.mp4"
+  },
+  "kn": {
+    "karadi": "/videos/kn/bear.mp4",
+    "viraama": "/videos/kn/break.mp4",
+    "badanekayi": "/videos/kn/brinjal.mp4",
+    "bajet": "/videos/kn/budget.mp4",
+    "vyasta": "/videos/kn/busy.mp4",
+    "kosu": "/videos/kn/cabbage.mp4",
+    "gajari": "/videos/kn/carrot.mp4",
+    "hookosu": "/videos/kn/cauliflower.mp4",
+    "menasinakayi": "/videos/kn/chilli.mp4",
+    "swachchagolisu": "/videos/kn/clean.mp4",
+    "mucchu": "/videos/kn/close.mp4",
+    "banni": "/videos/kn/come.mp4",
+    "aduge_madu": "/videos/kn/cook.mp4",
+    "mosale": "/videos/kn/crocodile.mp4",
+    "alu": "/videos/kn/cry.mp4",
+    "sautekayi": "/videos/kn/cucumber.mp4",
+    "jinke": "/videos/kn/deer.mp4",
+    "kudi": "/videos/kn/drink.mp4",
+    "aane": "/videos/kn/elephant.mp4",
+    "pareekshe": "/videos/kn/exam.mp4",
+    "nirase": "/videos/kn/fedup.mp4",
+    "jvara": "/videos/kn/fever.mp4",
+    "jiraaf": "/videos/kn/giraffe.mp4",
+    "kodu": "/videos/kn/give.mp4",
+    "shubhodaya": "/videos/kn/good_morning.mp4",
+    "shubha_madhyahna": "/videos/kn/good_afternoon.mp4",
+    "namaskara": "/videos/kn/hello.mp4",
+    "aalingisu": "/videos/kn/hug.mp4",
+    "gaaya": "/videos/kn/injury.mp4",
+    "saakshaatkaara": "/videos/kn/interview.mp4",
+    "haarike": "/videos/kn/jump.mp4",
+    "karnataka": "/videos/kn/karnataka.mp4",
+    "chaavi": "/videos/kn/key.mp4",
+    "chaaku": "/videos/kn/knife.mp4",
+    "nimbe": "/videos/kn/lemon.mp4",
+    "simha": "/videos/kn/lion.mp4",
+    "purusha": "/videos/kn/man.mp4",
+    "ganita": "/videos/kn/maths.mp4",
+    "bahusha": "/videos/kn/maybe.mp4",
+    "kothi": "/videos/kn/monkey.mp4",
+    "eerulli": "/videos/kn/onion.mp4",
+    "navilu": "/videos/kn/peacock.mp4",
+    "paarivaala": "/videos/kn/pigeon.mp4",
+    "surisu": "/videos/kn/pour.mp4",
+    "moolangi": "/videos/kn/radish.mp4",
+    "gubbachi": "/videos/kn/sparrow.mp4",
+    "innu": "/videos/kn/still.mp4",
+    "svich": "/videos/kn/switch.mp4",
+    "chaha": "/videos/kn/tea.mp4",
+    "devaalaya": "/videos/kn/temple.mp4"
+  }
+}
