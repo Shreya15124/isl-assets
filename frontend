@@ -1,0 +1,588 @@
+#APP.JS 
+import * as React from "react";
+import { NavigationContainer } from "@react-navigation/native";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { createStackNavigator } from "@react-navigation/stack";
+import { Provider as PaperProvider } from "react-native-paper";
+import { Ionicons } from "@expo/vector-icons";
+
+// Import screens
+import HomeScreen from "./screens/HomeScreen";
+import LearningModuleScreen from "./screens/LearningModuleScreen";
+import SpeechToSignScreen from "./screens/SpeechToSignScreen";
+import ProgressScreen from "./screens/ProgressScreen";
+import LoginScreen from "./screens/LoginScreen";
+
+// Tabs (Main App)
+const Tab = createBottomTabNavigator();
+
+function MainTabs({ route }) {
+  const { user, role } = route.params || {};
+
+  return (
+    <Tab.Navigator
+      initialRouteName="Home"
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ color, size }) => {
+          let iconName;
+          if (route.name === "Home") iconName = "home";
+          else if (route.name === "Learning") iconName = "book";
+          else if (route.name === "SpeechToSign") iconName = "mic";
+          else if (route.name === "Progress") iconName = "stats-chart";
+
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: "#0077b6",
+        tabBarInactiveTintColor: "gray",
+        headerShown: false,
+      })}
+    >
+      <Tab.Screen name="Home" component={HomeScreen} initialParams={{ user, role }} />
+      <Tab.Screen name="Learning" component={LearningModuleScreen} initialParams={{ user, role }} />
+      <Tab.Screen name="SpeechToSign" component={SpeechToSignScreen} initialParams={{ user, role }} />
+      <Tab.Screen name="Progress" component={ProgressScreen} initialParams={{ user, role }} />
+    </Tab.Navigator>
+  );
+}
+
+// Stack (Login → Main)
+const Stack = createStackNavigator();
+
+export default function App() {
+  return (
+    <PaperProvider>
+      <NavigationContainer>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Main" component={MainTabs} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </PaperProvider>
+  );
+}
+
+#SCREENS--
+#1.HOMESCREEN.JS:
+import React from "react";
+import { View, StyleSheet, TouchableOpacity, Text, Dimensions } from "react-native";
+import { Appbar, Card, Title } from "react-native-paper";
+
+const { height } = Dimensions.get("window");
+
+export default function HomeScreen({ navigation, route }) {
+  const { user, role } = route.params || {};
+
+  return (
+    <View style={styles.container}>
+      {/* Header */}
+      <Appbar.Header style={styles.header}>
+        <Appbar.Content title="Sign Learning App" titleStyle={styles.headerTitle} />
+      </Appbar.Header>
+
+      {/* Welcome text */}
+      <Text style={styles.welcome}>Welcome {user || "Guest"} 👋</Text>
+      <Text style={styles.role}>Role: {role || "Unknown"}</Text>
+
+      {/* Cards Section */}
+      <View style={styles.cardsContainer}>
+        <TouchableOpacity onPress={() => navigation.navigate("Learning")}>
+          <Card style={styles.card}>
+            <Card.Content>
+              <Title style={styles.cardTitle}>Learning Module</Title>
+              <Text>Learn alphabets, numbers, Kannada letters</Text>
+            </Card.Content>
+          </Card>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => navigation.navigate("SpeechToSign")}>
+          <Card style={styles.card}>
+            <Card.Content>
+              <Title style={styles.cardTitle}>Speech to Sign</Title>
+              <Text>Convert speech/text into sign videos</Text>
+            </Card.Content>
+          </Card>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => navigation.navigate("Progress", { user, role })}>
+          <Card style={styles.card}>
+            <Card.Content>
+              <Title style={styles.cardTitle}>Progress Tracker</Title>
+              <Text>View practice progress & remarks</Text>
+            </Card.Content>
+          </Card>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#f9f9f9" },
+  header: { backgroundColor: "#0077b6" },
+  headerTitle: { color: "white", fontSize: 20, fontWeight: "bold" },
+  welcome: {
+    fontSize: 22,
+    fontWeight: "bold",
+    marginTop: height * 0.05, // adjust according to screen height
+    textAlign: "center",
+    color: "#333",
+  },
+  role: {
+    fontSize: 16,
+    marginTop: 6,
+    marginBottom: 20,
+    textAlign: "center",
+    color: "#666",
+  },
+  cardsContainer: {
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: 16,
+  },
+  card: {
+    marginVertical: 12,
+    borderRadius: 12,
+    padding: 10,
+    backgroundColor: "#e3f2fd",
+    elevation: 3,
+  },
+  cardTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 6 },
+});
+
+#2.LEARNINGMODULESCREEN.JS:
+// LearningModuleScreen.js
+import React, { useState } from "react";
+import {
+  View,
+  StyleSheet,
+  FlatList,
+  Image,
+  Text,
+  TouchableOpacity,
+  Alert,
+  Modal,
+} from "react-native";
+import { Appbar, Card, Title } from "react-native-paper";
+import axios from "axios";
+
+// Replace with your backend URL
+const BASE_URL = "http://10.64.191.15:8000";
+
+// English Alphabets (A–Z)
+const englishSigns = [
+  { id: "A", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/A.jpg" },
+  { id: "B", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/B.jpg" },
+  { id: "C", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/C.jpg" },
+  { id: "D", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/D.jpg" },
+  { id: "E", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/E.jpg" },
+  { id: "F", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/F.jpg" },
+  { id: "G", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/G.jpg" },
+  { id: "H", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/H.jpg" },
+  { id: "I", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/I.jpg" },
+  { id: "J", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/J.jpg" },
+  { id: "K", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/K.jpg" },
+  { id: "L", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/L.jpg" },
+  { id: "M", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/M.jpg" },
+  { id: "N", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/N.jpg" },
+  { id: "O", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/O.jpg" },
+  { id: "P", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/P.jpg" },
+  { id: "Q", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/Q.jpg" },
+  { id: "R", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/R.jpg" },
+  { id: "S", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/S.jpg" },
+  { id: "T", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/T.jpg" },
+  { id: "U", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/U.jpg" },
+  { id: "V", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/V.jpg" },
+  { id: "W", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/W.jpg" },
+  { id: "X", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/X.jpg" },
+  { id: "Y", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/Y.jpg" },
+  { id: "Z", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/Z.jpg" },
+];
+
+// Numbers (0–9)
+const numberSigns = [
+  { id: "0", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/0.jpg" },
+  { id: "1", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/1.jpg" },
+  { id: "2", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/2.jpg" },
+  { id: "3", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/3.jpg" },
+  { id: "4", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/4.jpg" },
+  { id: "5", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/5.jpg" },
+  { id: "6", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/6.jpg" },
+  { id: "7", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/7.jpg" },
+  { id: "8", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/8.jpg" },
+  { id: "9", image: "https://raw.githubusercontent.com/Shreya15124/isl-assets/main/9.jpg" },
+];
+
+// Kannada Letters (ಕ – ಲ)
+const kannadaSigns = [
+  { id: "ಕ", image: "https://raw.githubusercontent.com/Shreya15124/kannada-sign-assets/main/kn_letters/ಕ.jpg" },
+  { id: "ಖ", image: "https://raw.githubusercontent.com/Shreya15124/kannada-sign-assets/main/kn_letters/ಖ.jpg" },
+  { id: "ಗ", image: "https://raw.githubusercontent.com/Shreya15124/kannada-sign-assets/main/kn_letters/ಗ.jpg" },
+  { id: "ಘ", image: "https://raw.githubusercontent.com/Shreya15124/kannada-sign-assets/main/kn_letters/ಘ.jpg" },
+  { id: "ಙ", image: "https://raw.githubusercontent.com/Shreya15124/kannada-sign-assets/main/kn_letters/ಙ.jpg" },
+  { id: "ಚ", image: "https://raw.githubusercontent.com/Shreya15124/kannada-sign-assets/main/kn_letters/ಚ.jpg" },
+  { id: "ಛ", image: "https://raw.githubusercontent.com/Shreya15124/kannada-sign-assets/main/kn_letters/ಛ.jpg" },
+  { id: "ಜ", image: "https://raw.githubusercontent.com/Shreya15124/kannada-sign-assets/main/kn_letters/ಜ.jpg" },
+  { id: "ಝ", image: "https://raw.githubusercontent.com/Shreya15124/kannada-sign-assets/main/kn_letters/ಝ.jpg" },
+  { id: "ಞ", image: "https://raw.githubusercontent.com/Shreya15124/kannada-sign-assets/main/kn_letters/ಞ.jpg" },
+  { id: "ಟ", image: "https://raw.githubusercontent.com/Shreya15124/kannada-sign-assets/main/kn_letters/ಟ.jpg" },
+  { id: "ಠ", image: "https://raw.githubusercontent.com/Shreya15124/kannada-sign-assets/main/kn_letters/ಠ.jpg" },
+  { id: "ಡ", image: "https://raw.githubusercontent.com/Shreya15124/kannada-sign-assets/main/kn_letters/ಡ.jpg" },
+  { id: "ಢ", image: "https://raw.githubusercontent.com/Shreya15124/kannada-sign-assets/main/kn_letters/ಢ.jpg" },
+  { id: "ಣ", image: "https://raw.githubusercontent.com/Shreya15124/kannada-sign-assets/main/kn_letters/ಣ.jpg" },
+  { id: "ತ", image: "https://raw.githubusercontent.com/Shreya15124/kannada-sign-assets/main/kn_letters/ತ.jpg" },
+  { id: "ಥ", image: "https://raw.githubusercontent.com/Shreya15124/kannada-sign-assets/main/kn_letters/ಥ.jpg" },
+  { id: "ದ", image: "https://raw.githubusercontent.com/Shreya15124/kannada-sign-assets/main/kn_letters/ದ.jpg" },
+  { id: "ಧ", image: "https://raw.githubusercontent.com/Shreya15124/kannada-sign-assets/main/kn_letters/ಧ.jpg" },
+  { id: "ನ", image: "https://raw.githubusercontent.com/Shreya15124/kannada-sign-assets/main/kn_letters/ನ.jpg" },
+  { id: "ಪ", image: "https://raw.githubusercontent.com/Shreya15124/kannada-sign-assets/main/kn_letters/ಪ.jpg" },
+  { id: "ಫ", image: "https://raw.githubusercontent.com/Shreya15124/kannada-sign-assets/main/kn_letters/ಫ.jpg" },
+  { id: "ಬ", image: "https://raw.githubusercontent.com/Shreya15124/kannada-sign-assets/main/kn_letters/ಬ.jpg" },
+  { id: "ಭ", image: "https://raw.githubusercontent.com/Shreya15124/kannada-sign-assets/main/kn_letters/ಭ.jpg" },
+  { id: "ಮ", image: "https://raw.githubusercontent.com/Shreya15124/kannada-sign-assets/main/kn_letters/ಮ.jpg" },
+  { id: "ಯ", image: "https://raw.githubusercontent.com/Shreya15124/kannada-sign-assets/main/kn_letters/ಯ.jpg" },
+  { id: "ರ", image: "https://raw.githubusercontent.com/Shreya15124/kannada-sign-assets/main/kn_letters/ರ.jpg" },
+  { id: "ಲ", image: "https://raw.githubusercontent.com/Shreya15124/kannada-sign-assets/main/kn_letters/ಲ.jpg" },
+];
+
+export default function LearningModuleScreen({ route }) {
+  const { user = "student1", role = "student" } = route.params || {};
+  const [selectedSet, setSelectedSet] = useState("english");
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+
+  const getData = () => {
+    if (selectedSet === "english") return englishSigns;
+    if (selectedSet === "numbers") return numberSigns;
+    if (selectedSet === "kannada") return kannadaSigns;
+    return [];
+  };
+
+  const handleOpen = async (item) => {
+    setSelectedImage(item.image);
+    setModalVisible(true);
+
+    try {
+      await axios.post(`${BASE_URL}/progress/update`, {
+        username: user, // ✅ logged-in user
+        word: item.id,
+        set: selectedSet,
+      });
+    } catch (error) {
+      Alert.alert("Error", "Could not update progress");
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <Appbar.Header style={styles.header}>
+        <Appbar.Content title="Learning Module" titleStyle={styles.headerTitle} />
+      </Appbar.Header>
+
+      <View style={styles.buttonRow}>
+        <TouchableOpacity
+          style={[styles.choiceButton, selectedSet === "english" && styles.activeButton]}
+          onPress={() => setSelectedSet("english")}
+        >
+          <Text style={styles.choiceText}>English</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.choiceButton, selectedSet === "numbers" && styles.activeButton]}
+          onPress={() => setSelectedSet("numbers")}
+        >
+          <Text style={styles.choiceText}>Numbers</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.choiceButton, selectedSet === "kannada" && styles.activeButton]}
+          onPress={() => setSelectedSet("kannada")}
+        >
+          <Text style={styles.choiceText}>Kannada</Text>
+        </TouchableOpacity>
+      </View>
+
+      <FlatList
+        data={getData()}
+        keyExtractor={(item) => item.id}
+        numColumns={2}
+        contentContainerStyle={styles.list}
+        renderItem={({ item }) => (
+          <TouchableOpacity onPress={() => handleOpen(item)} style={{ flex: 1 }}>
+            <Card style={styles.card}>
+              <Card.Content>
+                <Title style={styles.title}>{item.id}</Title>
+                <Image source={{ uri: item.image }} style={styles.image} />
+              </Card.Content>
+            </Card>
+          </TouchableOpacity>
+        )}
+      />
+
+      <Modal visible={modalVisible} transparent animationType="slide">
+        <View style={styles.modalContainer}>
+          <Image source={{ uri: selectedImage }} style={styles.modalImage} />
+          <TouchableOpacity style={styles.closeBtn} onPress={() => setModalVisible(false)}>
+            <Text style={{ color: "white" }}>Close</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#f9f9f9" },
+  header: { backgroundColor: "#0077b6" },
+  headerTitle: { color: "white", fontSize: 20, fontWeight: "bold" },
+  buttonRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    paddingVertical: 10,
+    backgroundColor: "#e3f2fd",
+  },
+  choiceButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: "#90caf9",
+  },
+  activeButton: { backgroundColor: "#0077b6" },
+  choiceText: { color: "white", fontWeight: "bold", fontSize: 14 },
+  list: { padding: 10 },
+  card: {
+    flex: 1,
+    margin: 8,
+    borderRadius: 10,
+    backgroundColor: "#ffffff",
+    elevation: 3,
+  },
+  title: { textAlign: "center", fontSize: 18, fontWeight: "bold", color: "#333" },
+  image: { width: "100%", height: 120, resizeMode: "contain", marginTop: 8 },
+  modalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.7)",
+  },
+  modalImage: { width: 250, height: 250, resizeMode: "contain" },
+  closeBtn: {
+    marginTop: 20,
+    padding: 10,
+    backgroundColor: "#0077b6",
+    borderRadius: 5,
+  },
+});
+
+#3.LOGINSCREEN.JS:
+// LoginScreen.js
+import React, { useState } from "react";
+import { View, TextInput, Button, StyleSheet, Text } from "react-native";
+
+export default function LoginScreen({ navigation }) {
+  const [name, setName] = useState("");
+  const [role, setRole] = useState("");
+
+  const handleLogin = () => {
+    const normalized = (role || "").trim().toLowerCase();
+    if (!name.trim()) return alert("Enter your name");
+    if (!["student","teacher","parent"].includes(normalized)) {
+      return alert("Role must be Student / Teacher / Parent (case-insensitive)");
+    }
+    // Replace stack with main and pass user+role to tabs
+    navigation.replace("Main", { user: name.trim(), role: normalized });
+  };
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>Sign Learning App</Text>
+      <TextInput placeholder="Your name" value={name} onChangeText={setName} style={styles.input} />
+      <TextInput placeholder="Role (Student/Teacher/Parent)" value={role} onChangeText={setRole} style={styles.input} />
+      <Button title="Login" onPress={handleLogin} />
+      <Text style={styles.hint}>Role is case-insensitive and space-insensitive</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {flex:1,justifyContent:"center",padding:20,backgroundColor:"#f9f9f9"},
+  title: {fontSize:22,fontWeight:"700",textAlign:"center",marginBottom:12},
+  input: {borderWidth:1,borderColor:"#ddd",padding:10,borderRadius:8,marginBottom:10},
+  hint: {color:"#666",marginTop:12,textAlign:"center"}
+});
+
+#4. PROGRESSSCREEN.JS:
+// ProgressScreen.js
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  ActivityIndicator,
+} from "react-native";
+import { Appbar, Card } from "react-native-paper";
+
+// Replace with your backend URL
+const BASE_URL = "http://10.64.191.15:8000";
+
+export default function ProgressScreen({ route }) {
+  const user = route?.params?.user || "student1";
+  const role = route?.params?.role || "student";
+  const [progress, setProgress] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProgress = async () => {
+      try {
+        const res = await fetch(`${BASE_URL}/progress/${user}`);
+        const data = await res.json();
+        console.log("Fetched progress:", data); // ✅ Debug
+        setProgress(data.progress || []);
+      } catch (err) {
+        console.error("Error fetching progress", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProgress();
+  }, [user]);
+
+  return (
+    <View style={styles.container}>
+      <Appbar.Header style={styles.header}>
+        <Appbar.Content
+          title="Progress Tracker"
+          titleStyle={styles.headerTitle}
+        />
+      </Appbar.Header>
+
+      {loading ? (
+        <ActivityIndicator size="large" color="#0077b6" style={{ marginTop: 30 }} />
+      ) : (
+        <FlatList
+          data={progress}
+          keyExtractor={(item, index) => index.toString()}
+          renderItem={({ item }) => (
+            <Card style={styles.card}>
+              <Card.Content>
+                <Text style={styles.text}>{item}</Text>
+              </Card.Content>
+            </Card>
+          )}
+          ListEmptyComponent={
+            <Text style={styles.empty}>No progress yet</Text>
+          }
+        />
+      )}
+
+      {role === "teacher" && (
+        <Text style={styles.hint}>
+          👨‍🏫 Teachers can add remarks (to be implemented)
+        </Text>
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#f9f9f9" },
+  header: { backgroundColor: "#0077b6" },
+  headerTitle: { color: "white", fontSize: 20, fontWeight: "bold" },
+  card: {
+    margin: 8,
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: "#e3f2fd",
+  },
+  text: { fontSize: 16, fontWeight: "bold" },
+  empty: { textAlign: "center", marginTop: 20, color: "#666" },
+  hint: { textAlign: "center", margin: 15, color: "gray" },
+});
+
+#5.SPEECHTOSIGNSCREEN.JS:
+// SpeechToSignScreen.js
+import React, { useState, useRef } from "react";
+import { View, Text, TextInput, Button, StyleSheet, Alert } from "react-native";
+import { Video } from "expo-av";
+import { Picker } from "@react-native-picker/picker";
+import { BACKEND_BASE_URL } from "../config";
+
+export default function SpeechToSignScreen() {
+  const [language, setLanguage] = useState("en");
+  const [word, setWord] = useState("");
+  const [videoUri, setVideoUri] = useState(null);
+  const videoRef = useRef(null);
+
+  const fetchVideo = async () => {
+    if (!word.trim()) return Alert.alert("Enter a word");
+    try {
+      const w = encodeURIComponent(word.trim().toLowerCase()); // 👈 lowercase ensures match
+      const res = await fetch(`${BACKEND_BASE_URL}/speech_to_sign/${language}/${w}`);
+      const data = await res.json();
+      if (data.video_url) {
+        // 👇 Ensure full absolute URL for Expo Video
+        const fullUrl = data.video_url.startsWith("http")
+          ? data.video_url
+          : `${BACKEND_BASE_URL}${data.video_url}`;
+        setVideoUri(fullUrl);
+      } else if (data.error) {
+        Alert.alert("No video", data.error);
+        setVideoUri(null);
+      } else {
+        Alert.alert("Unexpected", JSON.stringify(data));
+      }
+    } catch (err) {
+      Alert.alert("Network error", String(err));
+      setVideoUri(null);
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>Speech → Sign</Text>
+      <View style={{ width: 200, marginBottom: 12 }}>
+        <Picker selectedValue={language} onValueChange={setLanguage}>
+          <Picker.Item label="English" value="en" />
+          <Picker.Item label="Kannada" value="kn" />
+        </Picker>
+      </View>
+
+      <TextInput
+        style={styles.input}
+        placeholder="Type word (e.g. hello or namaskara)"
+        value={word}
+        onChangeText={setWord}
+        autoCapitalize="none"
+      />
+      <Button title="Show Sign" onPress={fetchVideo} />
+
+      {videoUri ? (
+        <Video
+          ref={videoRef}
+          source={{ uri: videoUri }}
+          style={styles.video}
+          useNativeControls
+          resizeMode="contain"
+          shouldPlay
+        />
+      ) : (
+        <Text style={{ marginTop: 16, color: "#666" }}>No video selected</Text>
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, alignItems: "center", padding: 20, backgroundColor: "#fff" },
+  title: { fontSize: 20, fontWeight: "700", marginBottom: 12 },
+  input: {
+    width: "80%",
+    borderWidth: 1,
+    borderColor: "#ddd",
+    padding: 10,
+    marginBottom: 12,
+    borderRadius: 6,
+  },
+  video: { width: "100%", height: 320, marginTop: 18, backgroundColor: "#000" },
+});
+
+
+
